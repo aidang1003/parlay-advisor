@@ -1,2 +1,5 @@
 .env
 node_modules/
+
+# Ignore cache file
+.bdl-cache.json

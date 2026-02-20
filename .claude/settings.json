@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.balldontlie.io)",
+      "WebFetch(domain:nba.balldontlie.io)"
+    ]
+  }
+}

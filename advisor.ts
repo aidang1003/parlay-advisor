@@ -1,11 +1,10 @@
-
 import { ethers } from "ethers";
 import { createZGComputeNetworkBroker } from "@0glabs/0g-serving-broker";
 import { OpenAI } from "openai";
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-async function main() {
+export async function aiCall(prompt: string): Promise<string> {
     // 1. Initialize broker with your wallet
     const provider = new ethers.JsonRpcProvider("https://evmrpc-testnet.0g.ai");
     const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
@@ -57,9 +56,8 @@ async function main() {
     }
 
     // 5. Send an inference request (OpenAI-compatible API)
-    const question = "Given the Polymarket at https://polymarket.com/sports/nba/nba-hou-cha-2026-02-19 research which bet has the best risk-adjusted value. Answer as concisely as possible. Format your answer in this dictionary {bet:'only the bet', reason:'give the reason here', confidence:'percent confidenc in the result'}";
     const { endpoint, model } = await broker.inference.getServiceMetadata(providerAddress);
-    const headers = await broker.inference.getRequestHeaders(providerAddress, question);
+    const headers = await broker.inference.getRequestHeaders(providerAddress, prompt);
 
 
     const openai = new OpenAI({
@@ -72,7 +70,7 @@ async function main() {
         {
             model: model,
             messages: [
-                { role: 'user', content: question },
+                { role: 'user', content: prompt },
             ],
         }
     );
@@ -84,6 +82,7 @@ async function main() {
     const valid = await broker.inference.processResponse(providerAddress, chatID, content);
     console.log(`Response valid: ${valid}`);
     console.log(`AI says: ${content}`);
+    return content;
 }
 
-main();
+
