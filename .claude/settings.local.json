@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:build.0g.ai)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}
