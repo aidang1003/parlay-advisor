@@ -80,8 +80,8 @@ export async function aiCall(prompt: string): Promise<string> {
 
     // 6. Verify the response (settles fees + verifies TEE signature)
     const valid = await broker.inference.processResponse(providerAddress, chatID, content);
-    console.log(`Response valid: ${valid}`);
-    console.log(`AI says: ${content}`);
+    // console.log(`Response valid: ${valid}`);
+    // console.log(`AI says: ${content}`);
     return content;
 }
 
