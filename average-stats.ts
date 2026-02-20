@@ -8,8 +8,9 @@ const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), ".
 
 interface CacheData {
     teams?: BDLTeam[];
-    rosters: Record<string, BDLPlayer[]>;          // keyed by team ID
-    seasonAverages: Record<string, PlayerSeasonAverage[]>; // keyed by "teamId-season"
+    rosters: Record<string, BDLPlayer[]>;                    // keyed by team ID
+    seasonAverages: Record<string, PlayerSeasonAverage[]>;   // keyed by "teamId-season"
+    teamSeasonAverages: Record<string, TeamSeasonAverage>;   // keyed by "teamId-season"
 }
 
 function loadCache(): CacheData {
@@ -17,7 +18,7 @@ function loadCache(): CacheData {
         console.log("Loading from cache...");
         return JSON.parse(fs.readFileSync(CACHE_PATH, "utf-8"));
     }
-    return { rosters: {}, seasonAverages: {} };
+    return { rosters: {}, seasonAverages: {}, teamSeasonAverages: {} };
 }
 
 function saveCache(cache: CacheData): void {
@@ -68,6 +69,13 @@ interface PlayerSeasonAverage {
 interface SeasonAveragesResponse {
     data: PlayerSeasonAverage[];
     meta: { per_page: number };
+}
+
+interface TeamSeasonAverage {
+    team: BDLTeam;
+    season: number;
+    season_type: string;
+    stats: Record<string, number | string>;
 }
 
 async function bdlFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
@@ -176,6 +184,53 @@ async function fetchSeasonAverages(
     return data.data;
 }
 
+async function fetchTeamSeasonAverages(
+    teamId: number,
+    season: number,
+    cache: CacheData,
+    category: string = "general",
+    seasonType: string = "regular",
+    type: string = "base",
+): Promise<TeamSeasonAverage | null> {
+    const key = `${teamId}-${season}`;
+    if (cache.teamSeasonAverages[key]) {
+        console.log(`Using cached team season averages for team ${teamId}, season ${season}`);
+        return cache.teamSeasonAverages[key];
+    }
+
+    console.log(`Fetching team season averages from API for team ${teamId}...`);
+    const url = new URL(`${BDL_BASE_URL}/team_season_averages/${category}`);
+    url.searchParams.set("season", season.toString());
+    url.searchParams.set("season_type", seasonType);
+    if (category !== "hustle") {
+        url.searchParams.set("type", type);
+    }
+    url.searchParams.append("team_ids[]", teamId.toString());
+
+    const response = await fetch(url.toString(), {
+        headers: { Authorization: BDL_API_KEY! },
+    });
+    if (!response.ok) {
+        console.warn(`Team season averages API error: ${response.status} ${response.statusText}`);
+        return null;
+    }
+    const data: { data: TeamSeasonAverage[] } = await response.json();
+    const entry = data.data[0] ?? null;
+    if (entry) {
+        cache.teamSeasonAverages[key] = entry;
+        saveCache(cache);
+    }
+    return entry;
+}
+
+function formatTeamStatsForPrompt(label: string, teamStats: TeamSeasonAverage | null): string {
+    if (!teamStats) return `${label}: No team stats available.`;
+    const statLines = Object.entries(teamStats.stats)
+        .map(([key, value]) => `  ${key}: ${value}`)
+        .join("\n");
+    return `${label}:\n${statLines}`;
+}
+
 function formatStatsForPrompt(
     label: string,
     players: PlayerSeasonAverage[],
@@ -212,41 +267,56 @@ async function analyzeMatchup(): Promise<string> {
     const homeIds = homeRoster.map((p) => p.id);
     const awayIds = awayRoster.map((p) => p.id);
 
-    // 3. Fetch season averages for both rosters
+    // 3. Fetch team + player season averages
     console.log("Fetching season averages...");
-    const [homeStats, awayStats] = await Promise.all([
+    const [homeStats, awayStats, homeTeamStats, awayTeamStats] = await Promise.all([
         fetchSeasonAverages(homeTeam.id, homeIds, MATCHUP.season, cache),
         fetchSeasonAverages(awayTeam.id, awayIds, MATCHUP.season, cache),
+        fetchTeamSeasonAverages(homeTeam.id, MATCHUP.season, cache),
+        fetchTeamSeasonAverages(awayTeam.id, MATCHUP.season, cache),
     ]);
 
     console.log(`Home stats: ${homeStats.length} players, Away stats: ${awayStats.length} players`);
 
+    const homeTeamBlock = formatTeamStatsForPrompt(
+        `${homeTeam.full_name} (${homeTeam.abbreviation}) — Team Stats`,
+        homeTeamStats,
+    );
+    const awayTeamBlock = formatTeamStatsForPrompt(
+        `${awayTeam.full_name} (${awayTeam.abbreviation}) — Team Stats`,
+        awayTeamStats,
+    );
     const homeBlock = formatStatsForPrompt(
-        `${homeTeam.full_name} (${homeTeam.abbreviation})`,
+        `${homeTeam.full_name} (${homeTeam.abbreviation}) — Player Averages`,
         homeStats,
     );
     const awayBlock = formatStatsForPrompt(
-        `${awayTeam.full_name} (${awayTeam.abbreviation})`,
+        `${awayTeam.full_name} (${awayTeam.abbreviation}) — Player Averages`,
         awayStats,
     );
 
     // 4. Send to AI for analysis
-    const prompt = `You are an NBA betting analyst. Use the following team rosters and season averages to analyze the Polymarket bet at ${MATCHUP.polymarketUrl}.
+    const prompt = `You are a concise NBA betting analyst. Build a parlay of 3-5 legs for ${homeTeam.full_name} vs ${awayTeam.full_name} (${MATCHUP.polymarketUrl}).
 
-${homeTeam.full_name} vs ${awayTeam.full_name}
+Pick from these bet types only: moneyline, spread, over/under (team total), player points, player assists, player rebounds.
 
-SEASON AVERAGES (${MATCHUP.season}):
+TEAM STATS (${MATCHUP.season}):
+${homeTeamBlock}
+${awayTeamBlock}
 
+PLAYER AVERAGES (${MATCHUP.season}):
 ${homeBlock}
-
 ${awayBlock}
 
-Based on these stats, identify which bet has the best risk-adjusted value. Consider:
-- Player performance trends and consistency
-- Team strengths and weaknesses relative to each other
-- How the stats compare to the betting lines
-
-Format your answer as: {bet:'the specific bet', reason:'your analysis', confidence:'percent confidence'}`;
+Respond in this exact JSON format, no other text:
+{
+  "parlay": [
+    {"leg": "bet description", "type": "moneyline|spread|over_under|player_points|player_assists|player_rebounds", "reason": "one sentence"},
+    ...
+  ],
+  "confidence": "percent confidence in the parlay",
+  "summary": "one sentence overall reasoning"
+}`;
 
     console.log("Sending analysis request to AI...");
     const result = await aiCall(prompt);
