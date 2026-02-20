@@ -58,11 +58,11 @@ const BDL_API_KEY = process.env.BALLDONTLIE_API_KEY;
 
 // ── Configure matchup here ──────────────────────────────────────────
 const MATCHUP = { // TODO: Feed in data here from the frontend/polymarket API
-    home: "MEM",       // team abbreviation (e.g. "HOU", "LAL", "BOS")
-    away: "UTA",       // team abbreviation
+    away: "IND",       // team abbreviation
+    home: "WAS",       // team abbreviation (e.g. "HOU", "LAL", "BOS")
     date: "2026-02-20", // game date YYYY-MM-DD (used for odds lookup)
     season: 2026,
-    polymarketUrl: "https://polymarket.com/sports/nba/nba-uta-mem-2026-02-20",
+    polymarketUrl: "https://polymarket.com/sports/nba/nba-ind-was-2026-02-20",
 };
 // ─────────────────────────────────────────────────────────────────────
 

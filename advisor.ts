@@ -5,8 +5,14 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 export async function aiCall(prompt: string): Promise<string> {
+    // 0. Set vraibles based on network (mainnet vs. testnet)
+    const networkAddress = process.env.MAINNET_NETWORK_RPC;
+    const networkModel = process.env.MAINNET_MODEL;
+
+
     // 1. Initialize broker with your wallet
-    const provider = new ethers.JsonRpcProvider("https://evmrpc-testnet.0g.ai");
+    console.log("Connecting to network at:", networkAddress);
+    const provider = new ethers.JsonRpcProvider(networkAddress);
     const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
     const broker = await createZGComputeNetworkBroker(wallet);
 
@@ -31,16 +37,16 @@ export async function aiCall(prompt: string): Promise<string> {
     });
 
     // 4. Pick a provider and acknowledge them (one-time per provider)
-    const chosen = services.find((s) => s.model.includes("qwen-2.5-7b-instruct")); // or pick any
+    const chosen = services.find((s) => s.model.includes(networkModel)); // or pick any
     console.log("Chose model.provider:", chosen.provider);
     if (!chosen) throw new Error("No suitable service found");
 
     const ledger = await broker.ledger.getLedger();
     const ledgerBalance = BigInt(ledger[2]);
     console.log("Ledger Balance:", ledger[2]);
-    const maxLedgerBalance = BigInt(4000000000000000000);
-    if (ledgerBalance < maxLedgerBalance) {
-        await broker.ledger.depositFund(1); // May need to deposit funds
+    const minLedgerBalance = BigInt(6200000000000000000);
+    if (ledgerBalance < minLedgerBalance) {
+        await broker.ledger.depositFund(4); // May need to deposit funds
     } else {
         console.log("Don't need to fund the ledger");
     }
