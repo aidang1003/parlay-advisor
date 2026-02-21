@@ -25,6 +25,7 @@ interface CacheData {
     gameOdds: Record<string, CacheEntry<GameOdds[]>>;
     playerProps: Record<string, CacheEntry<PlayerProp[]>>;
     todaysGameId: Record<string, CacheEntry<number | null>>;
+    formattedGameOdds: Record<string, CacheEntry<string>>;
 }
 
 function loadCache(): CacheData {
@@ -35,7 +36,7 @@ function loadCache(): CacheData {
     return {
         rosters: {}, seasonAverages: {}, teamSeasonAverages: {},
         injuries: {}, recentGames: {}, lineups: {},
-        gameOdds: {}, playerProps: {}, todaysGameId: {},
+        gameOdds: {}, playerProps: {}, todaysGameId: {}, formattedGameOdds: {},
     };
 }
 
@@ -58,11 +59,11 @@ const BDL_API_KEY = process.env.BALLDONTLIE_API_KEY;
 
 // ── Configure matchup here ──────────────────────────────────────────
 const MATCHUP = { // TODO: Feed in data here from the frontend/polymarket API
-    away: "IND",       // team abbreviation
-    home: "WAS",       // team abbreviation (e.g. "HOU", "LAL", "BOS")
-    date: "2026-02-20", // game date YYYY-MM-DD (used for odds lookup)
+    away: "ORL",       // team abbreviation
+    home: "PHX",       // team abbreviation (e.g. "HOU", "LAL", "BOS")
+    date: "2026-02-21", // game date YYYY-MM-DD (used for odds lookup)
     season: 2026,
-    polymarketUrl: "https://polymarket.com/sports/nba/nba-ind-was-2026-02-20",
+    polymarketUrl: "https://polymarket.com/sports/nba/nba-orl-phx-2026-02-21",
 };
 // ─────────────────────────────────────────────────────────────────────
 
@@ -453,16 +454,22 @@ async function findTodaysGameId(homeTeamId: number, awayTeamId: number, date: st
     return game.id;
 }
 
-async function fetchGameOdds(gameId: number): Promise<GameOdds[]> {
+async function fetchGameOdds(gameId: number, homeTeamId?: number, awayTeamId?: number): Promise<GameOdds[]> {
     console.log(`Fetching game odds for game ${gameId}...`);
     const allOdds: GameOdds[] = [];
     let cursor: number | null = null;
 
     do {
         const params: Record<string, string> = {
-            "game_ids[]": gameId.toString(),
+            game_id: gameId.toString(),
             per_page: "100",
         };
+        if (homeTeamId !== undefined) {
+            params.home_team_id = homeTeamId.toString();
+        }
+        if (awayTeamId !== undefined) {
+            params.away_team_id = awayTeamId.toString();
+        }
         if (cursor !== null) {
             params.cursor = cursor.toString();
         }
@@ -491,8 +498,15 @@ async function fetchPlayerProps(gameId: number): Promise<PlayerProp[]> {
     }
 }
 
-function formatGameOddsForPrompt(odds: GameOdds[], homeTeam: BDLTeam, awayTeam: BDLTeam): string {
+async function formatGameOddsForPrompt(odds: GameOdds[], homeTeam: BDLTeam, awayTeam: BDLTeam, cache: CacheData): Promise<string> {
     if (odds.length === 0) return "BETTING ODDS: No odds available.";
+
+    // Create cache key based on odds data
+    const cacheKey = `${odds.map(o => o.id).join(",")}`;
+    if (isFresh(cache.formattedGameOdds[cacheKey])) {
+        console.log("Using cached formatted game odds");
+        return cache.formattedGameOdds[cacheKey].data;
+    }
 
     // Group by vendor, show the latest from each
     const byVendor = new Map<string, GameOdds>();
@@ -510,7 +524,11 @@ function formatGameOddsForPrompt(odds: GameOdds[], homeTeam: BDLTeam, awayTeam: 
         lines.push(`    Moneyline: ${homeTeam.abbreviation} ${o.moneyline_home_odds}, ${awayTeam.abbreviation} ${o.moneyline_away_odds}`);
         lines.push(`    Total: ${o.total_value} (Over ${o.total_over_odds}, Under ${o.total_under_odds})`);
     });
-    return `BETTING ODDS (live market lines):\n${lines.join("\n")}`;
+
+    const result = `BETTING ODDS (live market lines):\n${lines.join("\n")}`;
+    cache.formattedGameOdds[cacheKey] = cached(result);
+    saveCache(cache);
+    return result;
 }
 
 function formatPlayerPropsForPrompt(props: PlayerProp[], roster: BDLPlayer[]): string {
@@ -656,7 +674,7 @@ async function analyzeMatchup(): Promise<string> {
     if (todaysGameId) {
         console.log("Fetching live odds and player props...");
         [gameOdds, playerProps] = await Promise.all([
-            fetchGameOdds(todaysGameId),
+            fetchGameOdds(todaysGameId, homeTeam.id, awayTeam.id),
             fetchPlayerProps(todaysGameId),
         ]);
     } else {
@@ -699,7 +717,7 @@ async function analyzeMatchup(): Promise<string> {
         awayLineups,
         awayGames,
     );
-    const oddsBlock = formatGameOddsForPrompt(gameOdds, homeTeam, awayTeam);
+    const oddsBlock = await formatGameOddsForPrompt(gameOdds, homeTeam, awayTeam, cache);
     const allRoster = [...homeRoster, ...awayRoster];
     const propsBlock = playerProps.length > 0
         ? `PLAYER PROP LINES (live market):\n${formatPlayerPropsForPrompt(playerProps, allRoster)}`
@@ -707,9 +725,11 @@ async function analyzeMatchup(): Promise<string> {
 
     // 6. Send to AI for analysis
     const prompt = `You are a concise NBA betting analyst. Build a parlay of 3-5 legs for ${homeTeam.full_name} vs ${awayTeam.full_name} (${MATCHUP.polymarketUrl}).
-
+Select a bet in the game market defined in the "BETTING ODDS (live market lines):" section.
 Pick from these bet types only: moneyline, spread, over/under (team total), player points, player assists, player rebounds.
-Use the live betting odds below as reference for fair market lines. Your parlay legs should reference specific lines (e.g. "Over 27.5 points") based on what the market offers.
+Use the live betting odds below as reference for fair market lines. Your parlay legs should reference specific lines based on what the market offers.
+ONLY GIVE PLAYER PROPS FOR HEALTHY, ACTIVE PLAYERS in the starting lineup — check the recent lineups and injury report carefully.
+Use the actual betting line provided by the market data. DO NOT JUST MAKE YOUR OWN
 
 CRITICAL RULES:
 - You MUST return exactly 3, 4, or 5 legs. Never fewer than 3.
@@ -724,7 +744,7 @@ CRITICAL RULES:
   * Mix player props across DIFFERENT players from BOTH teams with at most one team-level bet (moneyline, spread, or over/under).
   * Two player props from the same player (e.g. points + assists for the same player)
 
-
+Odds Block: iF THERE IS NOTHING AVAILABLE IN THE ODDS MARKET, YOU MUST SAY "No odds available" AND THEN YOU CAN REFERENCE THE STATS TO MAKE YOUR BEST GUESS AT A GOOD PARLAY, BUT YOU MUST STILL FOLLOW ALL THE RULES ABOVE ABOUT CORRELATION AND ONLY PICKING HEALTHY STARTERS FOR PLAYER PROPS.
 ${oddsBlock}
 
 ${propsBlock}

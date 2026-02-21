@@ -6,8 +6,19 @@ dotenv.config();
 
 export async function aiCall(prompt: string): Promise<string> {
     // 0. Set vraibles based on network (mainnet vs. testnet)
-    const networkAddress = process.env.MAINNET_NETWORK_RPC;
-    const networkModel = process.env.MAINNET_MODEL;
+    const network = process.env.NETWORK;
+    let networkAddress = "";
+    let networkModel = "";
+
+    if (network === "mainnet") {
+        console.log("Using MAINNET configuration");
+        networkAddress = process.env.MAINNET_NETWORK_RPC;
+        networkModel = process.env.MAINNET_MODEL;
+    } else {
+        console.log("Using TESTNET configuration");
+        networkAddress = process.env.TEST_NETWORK_RPC;
+        networkModel = process.env.TEST_MODEL;
+    }
 
 
     // 1. Initialize broker with your wallet
