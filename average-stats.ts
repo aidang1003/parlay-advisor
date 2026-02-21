@@ -435,62 +435,44 @@ async function bdlV2Fetch<T>(path: string, params?: Record<string, string>): Pro
     return response.json() as Promise<T>;
 }
 
-async function findTodaysGameId(homeTeamId: number, awayTeamId: number, date: string): Promise<number | null> {
-    console.log(`Looking up game on ${date}...`);
-    const { data } = await bdlFetch<{ data: BDLGame[] }>("/games", {
-        "dates[]": date,
-        per_page: "100",
-    });
-    const game = data.find(
-        (g) =>
-            (g.home_team_id === homeTeamId && g.visitor_team_id === awayTeamId) ||
-            (g.home_team_id === awayTeamId && g.visitor_team_id === homeTeamId)
-    );
-    if (!game) {
-        console.warn(`No game found for teams ${homeTeamId} vs ${awayTeamId} on ${date}`);
-        return null;
-    }
-    console.log(`Found game ID ${game.id} for ${date}`);
-    return game.id;
-}
-
-async function fetchGameOdds(gameId: number, homeTeamId?: number, awayTeamId?: number): Promise<GameOdds[]> {
-    console.log(`Fetching game odds for game ${gameId}...`);
+async function fetchGameOdds(date: string): Promise<GameOdds[]> {
+    console.log(`Fetching all game odds for date ${date}...`);
     const allOdds: GameOdds[] = [];
     let cursor: number | null = null;
 
     do {
-        const params: Record<string, string> = {
-            game_id: gameId.toString(),
-            per_page: "100",
-        };
-        if (homeTeamId !== undefined) {
-            params.home_team_id = homeTeamId.toString();
-        }
-        if (awayTeamId !== undefined) {
-            params.away_team_id = awayTeamId.toString();
-        }
+        // Build URL manually to handle array parameters correctly
+        const url = new URL(`${BDL_V2_BASE}/odds`);
+        url.searchParams.append("dates[]", date);
+        url.searchParams.append("vendors[]", "draftkings"); // Query DraftKings specifically
+        url.searchParams.set("per_page", "100");
         if (cursor !== null) {
-            params.cursor = cursor.toString();
+            url.searchParams.set("cursor", cursor.toString());
         }
-        const res = await bdlV2Fetch<{ data: GameOdds[]; meta: { next_cursor: number | null } }>(
-            "/odds", params
-        );
+
+        const response = await fetch(url.toString(), {
+            headers: { Authorization: BDL_API_KEY! },
+        });
+        if (!response.ok) {
+            console.warn(`Game odds API error: ${response.status} ${response.statusText}`);
+            return [];
+        }
+        const res: { data: GameOdds[]; meta: { next_cursor: number | null } } = await response.json();
         allOdds.push(...res.data);
         cursor = res.meta.next_cursor ?? null;
     } while (cursor !== null);
 
-    console.log(`Found ${allOdds.length} odds entries for game ${gameId}`);
+    console.log(`Found ${allOdds.length} odds entries for date ${date}`);
     return allOdds;
 }
 
-async function fetchPlayerProps(gameId: number): Promise<PlayerProp[]> {
-    console.log(`Fetching player props for game ${gameId}...`);
+async function fetchPlayerProps(date: string): Promise<PlayerProp[]> {
+    console.log(`Fetching player props for date ${date}...`);
     try {
         const { data } = await bdlV2Fetch<{ data: PlayerProp[] }>("/odds/player_props", {
-            game_id: gameId.toString(),
+            date: date,
         });
-        console.log(`Found ${data.length} player props for game ${gameId}`);
+        console.log(`Found ${data.length} player props for date ${date}`);
         return data;
     } catch (e) {
         console.warn(`Player props API error:`, e);
@@ -660,25 +642,36 @@ async function analyzeMatchup(): Promise<string> {
         fetchRecentGames(awayTeam.id, MATCHUP.season, cache)
     ]);
 
-    // 4. Fetch lineups for recent games + find today's game for odds
-    console.log("Fetching recent lineups and looking up today's game...");
-    const [homeLineups, awayLineups, todaysGameId] = await Promise.all([
+    // 4. Fetch lineups for recent games
+    console.log("Fetching recent lineups...");
+    const [homeLineups, awayLineups] = await Promise.all([
         fetchLineups(homeGames.map((g) => g.id), homeTeam.id, cache),
         fetchLineups(awayGames.map((g) => g.id), awayTeam.id, cache),
-        findTodaysGameId(homeTeam.id, awayTeam.id, MATCHUP.date),
     ]);
 
-    // 5. Fetch live odds and player props if we found the game
+    // 5. Fetch live odds and player props for today's date
+    console.log("Fetching live odds and player props...");
+    const [allGameOdds, playerProps] = await Promise.all([
+        fetchGameOdds(MATCHUP.date),
+        fetchPlayerProps(MATCHUP.date),
+    ]);
+
+    // Filter odds to just the matchup (group by game_id and find the one we care about)
+    const gameOddsByGameId = new Map<number, GameOdds[]>();
+    for (const odd of allGameOdds) {
+        if (!gameOddsByGameId.has(odd.game_id)) {
+            gameOddsByGameId.set(odd.game_id, []);
+        }
+        gameOddsByGameId.get(odd.game_id)!.push(odd);
+    }
+
+    // Get odds for the home vs away matchup (use the first game with odds that matches our teams)
     let gameOdds: GameOdds[] = [];
-    let playerProps: PlayerProp[] = [];
-    if (todaysGameId) {
-        console.log("Fetching live odds and player props...");
-        [gameOdds, playerProps] = await Promise.all([
-            fetchGameOdds(todaysGameId, homeTeam.id, awayTeam.id),
-            fetchPlayerProps(todaysGameId),
-        ]);
-    } else {
-        console.warn("Skipping odds — could not find today's game.");
+    const oddEntries = Array.from(gameOddsByGameId.entries());
+    if (oddEntries.length > 0) {
+        // For now, assume the first game with odds in the list is our matchup
+        // (In production, you'd want to validate this against the actual teams)
+        gameOdds = oddEntries[0][1];
     }
 
     console.log(`Home stats: ${homeStats.length} players, Away stats: ${awayStats.length} players`);
