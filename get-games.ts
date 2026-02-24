@@ -37,7 +37,7 @@ function loadGamesCache(): NBAGame[] | null {
     return null;
 }
 
-async function getCachedUpcomingGames(): Promise<NBAGame[]> {
+export async function getCachedUpcomingGames(): Promise<NBAGame[]> {
     const cached = loadGamesCache();
     if (cached) {
         console.log("Loaded games from cache.");
@@ -49,8 +49,23 @@ async function getCachedUpcomingGames(): Promise<NBAGame[]> {
     return games;
 }
 
+export async function formatGames(): Promise<string> {
+    const games = await getCachedUpcomingGames();
+    const formatted = games.map(game => ({
+        game_id: game.id,
+        date: game.date,
+        status: game.status,
+        home_team: `${game.home_team.city} ${game.home_team.name}`,
+        visitor_team: `${game.visitor_team.city} ${game.visitor_team.name}`,
+        home_team_score: game.home_team_score,
+        visitor_team_score: game.visitor_team_score,
+        postseason: game.postseason,
+    }));
+    return JSON.stringify(formatted, null, 2);
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-    getCachedUpcomingGames().then(games => {
+    formatGames().then(games => {
         console.log(games);
     });
 }

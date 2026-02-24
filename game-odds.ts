@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { BalldontlieAPI, NBAOdds } from "@balldontlie/sdk";
+import { getCachedUpcomingGames } from "./get-games.js";
 dotenv.config();
 
 const api = new BalldontlieAPI({ apiKey: process.env.BALLDONTLIE_API_KEY }); // Init API client with API key from .env
@@ -19,7 +20,7 @@ async function getOdds() {
     }
 }
 
-async function getOddsv2() {
+async function getOddsV2() {
     const BASE_URL = "https://api.balldontlie.io/v2/odds";
     const DATE = "2026-02-25";
     const url = `${BASE_URL}?dates[]=${DATE}`;
@@ -32,7 +33,7 @@ async function getOddsv2() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const odds = await response.json();
-        console.log("Fetched odds from API:", JSON.stringify(odds, null, 2));
+        return odds;
     } catch (error) {
         console.error(error);
         throw error;
@@ -58,20 +59,33 @@ function loadOddsCache(): any | null {
     return null;
 }
 
-function main() {
+function clearOddsCache() {
+    if (fs.existsSync(CACHE_PATH)) {
+        fs.unlinkSync(CACHE_PATH);
+    }
+}
+
+export async function formatOdds(): Promise<string> {
+    let oddsData;
     const cachedOdds = loadOddsCache();
     if (cachedOdds) {
-        console.log("Loaded odds from cache:");
-        console.log(cachedOdds);
+        oddsData = cachedOdds;
     } else {
-        getOdds().then(odds => {
-            updateOddsCache(odds);
-            console.log("Fetched odds from API and updated cache:");
-            console.log(odds);
-        }).catch(error => {
-            console.error("Failed to fetch odds from API:", error);
-        });
+        clearOddsCache();
+        oddsData = await getOddsV2();
+        updateOddsCache(oddsData);
     }
+
+    const upcomingGames = await getCachedUpcomingGames();
+    const upcomingGameIds = new Set(upcomingGames.map(game => game.id));
+    oddsData.data = oddsData.data.filter((odd: any) => upcomingGameIds.has(odd.game_id));
+
+    return JSON.stringify(oddsData, null, 2);
+}
+
+async function main() {
+    const oddsBlock = await formatOdds();
+    console.log(oddsBlock);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
