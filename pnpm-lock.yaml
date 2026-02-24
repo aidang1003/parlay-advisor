@@ -11,6 +11,9 @@ importers:
       '@0glabs/0g-serving-broker':
         specifier: ^0.7.1
         version: 0.7.1(@types/circomlibjs@0.1.6)(@types/crypto-js@4.2.2)(bufferutil@4.1.0)(circomlibjs@0.1.7(bufferutil@4.1.0)(utf-8-validate@5.0.10))(crypto-js@4.2.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(rollup@4.57.1)(typechain@8.3.2(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10)(ws@8.19.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))
+      '@balldontlie/sdk':
+        specifier: ^1.2.2
+        version: 1.2.2
       '@types/crypto-js':
         specifier: ^4.2.2
         version: 4.2.2
@@ -60,6 +63,9 @@ packages:
   '@babel/helper-validator-identifier@7.28.5':
     resolution: {integrity: sha512-qSs4ifwzKJSV39ucNjsvc6WVHs6b7S03sOh2OcHF9UHfVPqWWALUsNUVzhSBiItjRZoLHx7nIarVjqKVusUZ1Q==}
     engines: {node: '>=6.9.0'}
+
+  '@balldontlie/sdk@1.2.2':
+    resolution: {integrity: sha512-y9ZnqhsRxNYjyxjARzqkQgwgSWmXfZ6o7ZQ9nTbZjqj8qywY7se9ppLz3O1pWtiLawYOH6MizwG62li5pMoJYg==}
 
   '@colors/colors@1.5.0':
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
@@ -1981,6 +1987,12 @@ snapshots:
       picocolors: 1.1.1
 
   '@babel/helper-validator-identifier@7.28.5': {}
+
+  '@balldontlie/sdk@1.2.2':
+    dependencies:
+      axios: 1.13.5
+    transitivePeerDependencies:
+      - debug
 
   '@colors/colors@1.5.0':
     optional: true
