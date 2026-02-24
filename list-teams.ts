@@ -38,6 +38,18 @@ function loadTeamCache(): NBATeam[] | null {
     return null;
 }
 
+export async function getCachedTeams(): Promise<NBATeam[]> {
+    const cached = loadTeamCache();
+    if (cached) {
+        console.log("Loaded teams from cache.");
+        return cached;
+    }
+    const teams = await getTeams();
+    updateTeamCache(teams);
+    console.log("Fetched teams from API and updated cache.");
+    return teams;
+}
+
 function main() {
     const cachedTeams = loadTeamCache();
     if (cachedTeams) {

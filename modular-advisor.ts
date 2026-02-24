@@ -1,4 +1,4 @@
-import { formatOdds } from "./game-odds.js";
+import { formatOdds } from "./get-odds.js";
 import { formatGames } from "./get-games.js";
 import { aiCall } from "./Open-0g-Ai-Call.js";
 

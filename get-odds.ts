@@ -6,7 +6,7 @@ import { getCachedUpcomingGames } from "./get-games.js";
 dotenv.config();
 
 const api = new BalldontlieAPI({ apiKey: process.env.BALLDONTLIE_API_KEY }); // Init API client with API key from .env
-const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "/cache/.bdl-game-odds.json"); // Cache location
+const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "/cache/.bdl-odds.json"); // Cache location
 const CACHE_TTL_MS = 10 * 60 * 1000; // How long cached data stays fresh (ms). Lower this in production.
 
 async function getOdds() {
@@ -65,22 +65,23 @@ function clearOddsCache() {
     }
 }
 
-export async function formatOdds(): Promise<string> {
-    let oddsData;
+export async function getCachedOdds(): Promise<{ data: any[] }> {
     const cachedOdds = loadOddsCache();
     if (cachedOdds) {
-        oddsData = cachedOdds;
-    } else {
-        clearOddsCache();
-        oddsData = await getOddsV2();
-        updateOddsCache(oddsData);
+        return cachedOdds;
     }
+    clearOddsCache();
+    const oddsData = await getOddsV2();
+    updateOddsCache(oddsData);
+    return oddsData;
+}
 
+export async function formatOdds(): Promise<string> {
+    const oddsData = await getCachedOdds();
     const upcomingGames = await getCachedUpcomingGames();
     const upcomingGameIds = new Set(upcomingGames.map(game => game.id));
-    oddsData.data = oddsData.data.filter((odd: any) => upcomingGameIds.has(odd.game_id));
-
-    return JSON.stringify(oddsData, null, 2);
+    const filtered = { ...oddsData, data: oddsData.data.filter((odd: any) => upcomingGameIds.has(odd.game_id)) };
+    return JSON.stringify(filtered, null, 2);
 }
 
 async function main() {
