@@ -1,4 +1,4 @@
-import { aiCall } from "./advisor";
+import { aiCall } from "./Open-0g-Ai-Call";
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
