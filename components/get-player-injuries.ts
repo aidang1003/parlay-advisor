@@ -5,7 +5,7 @@ import { BalldontlieAPI, NBAPlayerInjury } from "@balldontlie/sdk";
 dotenv.config();
 
 const api = new BalldontlieAPI({ apiKey: process.env.BALLDONTLIE_API_KEY }); // Init API client with API key from .env
-const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "/cache/.bdl-player-injuries.json"); // Cache location
+const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "../cache/.bdl-player-injuries.json"); // Cache location
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — injury reports change frequently
 
 type PlayerInjuriesCache = Record<string, { timestamp: number; injuries: NBAPlayerInjury[] }>;

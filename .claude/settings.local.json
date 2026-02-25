@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:build.0g.ai)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(ls -1 *.md *.ts)",
+      "Bash(wc -l *.md *.ts)"
     ]
   }
 }

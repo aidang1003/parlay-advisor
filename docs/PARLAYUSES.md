@@ -83,7 +83,48 @@ formatPlayerPropContext(ctx: PlayerPropAnalysis): string
 
 ---
 
-## Use Case 4 — Head-to-Head Matchup History 🔲 Planned
+## Use Case 4 — Same-Game Parlay Advisor ✅ Implemented
+
+**Scenario:** Given two team names, find their upcoming matchup, assemble full game context (stats, injuries, lineups) plus odds, and ask the AI to recommend correlated SGP legs.
+
+**Entry point:** `same-game-parlay-advisor.ts`
+
+**Data assembled:**
+
+| Layer         | Source                        | Notes                                            |
+| ------------- | ----------------------------- | ------------------------------------------------ |
+| Game lookup   | `get-games.ts`                | Match team names/abbr against upcoming schedule  |
+| Game context  | `optimize-game-structure.ts`  | Full `GameAnalysis` (roster, stats, injuries)    |
+| Odds          | `get-odds.ts`                 | Filtered to the matched game ID only             |
+
+**Key functions:**
+
+```ts
+sameGameParlayAdvice(teamA: string, teamB: string): Promise<string>
+```
+
+**Team matching** accepts city, team name, full name, or abbreviation (case-insensitive).
+
+**Typical prompt flow:**
+
+```
+findGame(games, teamA, teamB)
+  → buildGameAnalysis(game) + getCachedOdds() [concurrent]
+  → formatGameAnalysis() + filter odds by game_id
+  → aiCall(sgpPrompt)
+```
+
+**CLI usage:**
+
+```bash
+npx tsx same-game-parlay-advisor.ts Thunder Pistons
+npx tsx same-game-parlay-advisor.ts "Oklahoma City" Detroit
+npx tsx same-game-parlay-advisor.ts OKC DET
+```
+
+---
+
+## Use Case 5 — Head-to-Head Matchup History 🔲 Planned
 
 **Scenario:** Use historical games between two teams to spot trends (e.g. "these teams go over 60% of the time").
 

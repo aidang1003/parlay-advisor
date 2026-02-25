@@ -5,7 +5,7 @@ import { BalldontlieAPI, NBAGame } from "@balldontlie/sdk";
 dotenv.config();
 
 const api = new BalldontlieAPI({ apiKey: process.env.BALLDONTLIE_API_KEY }); // Init API client with API key from .env
-const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "/cache/.bdl-games.json"); // Cache location
+const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "../cache/.bdl-games.json"); // Cache location
 const CACHE_TTL_MS = 60 * 60 * 1000; // Update every hour
 
 async function getUpcomingGames(): Promise<NBAGame[]> {

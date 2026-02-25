@@ -7,7 +7,7 @@ dotenv.config();
 // stats record) not covered by the SDK's getSeasonAverages() which only supports
 // the basic v1 format keyed by player_id. Raw fetch is used here instead.
 const BDL_BASE_URL = "https://api.balldontlie.io/v1";
-const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "/cache/.bdl-season-averages.json"); // Cache location
+const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "../cache/.bdl-season-averages.json"); // Cache location
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export interface NBASeasonAverage {

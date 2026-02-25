@@ -5,7 +5,7 @@ dotenv.config();
 
 // The v2/odds/player_props endpoint is not covered by the SDK. Raw fetch is used here instead.
 const BDL_BASE_URL = "https://api.balldontlie.io/v2";
-const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "/cache/.bdl-player-props.json"); // Cache location
+const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "../cache/.bdl-player-props.json"); // Cache location
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes — live betting lines change frequently
 
 export interface NBAPlayerPropMarket {

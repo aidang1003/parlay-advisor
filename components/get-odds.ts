@@ -6,7 +6,7 @@ import { getCachedUpcomingGames } from "./get-games.js";
 dotenv.config();
 
 const api = new BalldontlieAPI({ apiKey: process.env.BALLDONTLIE_API_KEY }); // Init API client with API key from .env
-const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "/cache/.bdl-odds.json"); // Cache location
+const CACHE_PATH = path.join(path.dirname(new URL(import.meta.url).pathname), "../cache/.bdl-odds.json"); // Cache location
 const CACHE_TTL_MS = 10 * 60 * 1000; // How long cached data stays fresh (ms). Lower this in production.
 
 async function getOdds() {

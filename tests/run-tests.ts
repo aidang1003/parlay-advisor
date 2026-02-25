@@ -3,15 +3,15 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 dotenv.config({ path: path.join(path.dirname(new URL(import.meta.url).pathname), '../.env') });
 
-import { getCachedTeams } from '../list-teams.js';
-import { getCachedUpcomingGames } from '../get-games.js';
-import { getCachedOdds } from '../get-odds.js';
-import { getCachedPlayers } from '../get-players.js';
-import { getCachedPlayerInjuries } from '../get-player-injuries.js';
-import { getCachedSeasonAverages } from '../get-season-averages.js';
-import { getCachedTeamSeasonAverages } from '../get-team-season-averages.js';
-import { getCachedLineups } from '../get-lineups.js';
-import { getCachedPlayerProps } from '../get-player-props.js';
+import { getCachedTeams } from '../components/list-teams.js';
+import { getCachedUpcomingGames } from '../components/get-games.js';
+import { getCachedOdds } from '../components/get-odds.js';
+import { getCachedPlayers } from '../components/get-players.js';
+import { getCachedPlayerInjuries } from '../components/get-player-injuries.js';
+import { getCachedSeasonAverages } from '../components/get-season-averages.js';
+import { getCachedTeamSeasonAverages } from '../components/get-team-season-averages.js';
+import { getCachedLineups } from '../components/get-lineups.js';
+import { getCachedPlayerProps } from '../components/get-player-props.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
